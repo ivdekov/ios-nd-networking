@@ -71,9 +71,9 @@
 		A9A3A21B1BEBB478009BE8E1 /* Assets */ = {
 			isa = PBXGroup;
 			children = (
+				A9A3A20B1BEBB443009BE8E1 /* Main.storyboard */,
 				A9FA13391D1AB5F300B5F46E /* LaunchScreen.xib */,
 				A9A3A20E1BEBB443009BE8E1 /* Assets.xcassets */,
-				A9A3A20B1BEBB443009BE8E1 /* Main.storyboard */,
 			);
 			name = Assets;
 			sourceTree = "<group>";
