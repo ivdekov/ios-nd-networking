@@ -48,7 +48,7 @@ class ViewController: UIViewController {
     // MARK: Search Actions
     
     @IBAction func searchByPhrase(sender: AnyObject) {
-
+        
         userDidTapView(self)
         setUIEnabled(false)
         
@@ -56,15 +56,15 @@ class ViewController: UIViewController {
             photoTitleLabel.text = "Searching..."
             
             let methodParameters: [String: String!] = [
-				Constants.FlickrParameterKeys.APIKey: Constants.FlickrParameterValues.APIKey,
-				Constants.FlickrParameterKeys.Method: Constants.FlickrParameterValues.SearchMethod,
-				Constants.FlickrParameterKeys.Format: Constants.FlickrParameterValues.ResponseFormat,
-				Constants.FlickrParameterKeys.NoJSONCallback: Constants.FlickrParameterValues.DisableJSONCallback,
-				Constants.FlickrParameterKeys.Extras: Constants.FlickrParameterValues.MediumURL,
-				Constants.FlickrParameterKeys.SafeSearch: Constants.FlickrParameterValues.UseSafeSearch,
-				Constants.FlickrParameterKeys.Text: phraseTextField.text
-			]
-			
+                Constants.FlickrParameterKeys.APIKey: Constants.FlickrParameterValues.APIKey,
+                Constants.FlickrParameterKeys.Method: Constants.FlickrParameterValues.SearchMethod,
+                Constants.FlickrParameterKeys.Format: Constants.FlickrParameterValues.ResponseFormat,
+                Constants.FlickrParameterKeys.NoJSONCallback: Constants.FlickrParameterValues.DisableJSONCallback,
+                Constants.FlickrParameterKeys.Extras: Constants.FlickrParameterValues.MediumURL,
+                Constants.FlickrParameterKeys.SafeSearch: Constants.FlickrParameterValues.UseSafeSearch,
+                Constants.FlickrParameterKeys.Text: phraseTextField.text
+            ]
+            
             displayImageFromFlickrBySearch(methodParameters)
         } else {
             setUIEnabled(true)
@@ -73,7 +73,7 @@ class ViewController: UIViewController {
     }
     
     @IBAction func searchByLatLon(sender: AnyObject) {
-
+        
         userDidTapView(self)
         setUIEnabled(false)
         
@@ -100,18 +100,18 @@ class ViewController: UIViewController {
     }
     
     private func bboxString() -> String {
-        /* 
-        // My implementation
-        let long = Double(longitudeTextField.text!)!
-        let lat = Double(latitudeTextField.text!)!
-        
-        let minimum_longitude = max(long - Constants.Flickr.SearchBBoxHalfWidth, Constants.Flickr.SearchLonRange.0)
-        let minimum_latitude = max(lat - Constants.Flickr.SearchBBoxHalfHeight, Constants.Flickr.SearchLatRange.0)
-        let maximum_longitude = min(long + Constants.Flickr.SearchBBoxHalfWidth, Constants.Flickr.SearchLatRange.1)
-        let maximum_latitude = min(lat + Constants.Flickr.SearchBBoxHalfHeight, Constants.Flickr.SearchLatRange.1)
-        
-        return "\(minimum_longitude),\(minimum_latitude),\(maximum_longitude),\(maximum_latitude)"
-        */
+        /*
+         // My implementation
+         let long = Double(longitudeTextField.text!)!
+         let lat = Double(latitudeTextField.text!)!
+         
+         let minimum_longitude = max(long - Constants.Flickr.SearchBBoxHalfWidth, Constants.Flickr.SearchLonRange.0)
+         let minimum_latitude = max(lat - Constants.Flickr.SearchBBoxHalfHeight, Constants.Flickr.SearchLatRange.0)
+         let maximum_longitude = min(long + Constants.Flickr.SearchBBoxHalfWidth, Constants.Flickr.SearchLatRange.1)
+         let maximum_latitude = min(lat + Constants.Flickr.SearchBBoxHalfHeight, Constants.Flickr.SearchLatRange.1)
+         
+         return "\(minimum_longitude),\(minimum_latitude),\(maximum_longitude),\(maximum_latitude)"
+         */
         
         // ensure bbox is bounded by minimum and maximum
         if let latitude = Double(latitudeTextField.text!), let longitude = Double(longitudeTextField.text!) {
@@ -180,6 +180,85 @@ class ViewController: UIViewController {
                 return
             }
             
+            guard let totalPages = photosDictionary[Constants.FlickrResponseKeys.Pages] as? Int else {
+                displayError("Could not find value of '\(Constants.FlickrResponseKeys.Pages)' key in photosDictionary")
+                return
+            }
+            
+            guard totalPages > 0 else {
+                displayError("There are 0 total images")
+                performUIUpdatesOnMain {
+                    self.setUIEnabled(true)
+                    self.photoTitleLabel.text = "No Images Found, Search Again"
+                }
+                return            }
+            
+            // pick a random page
+            let pageLimit = min(40, totalPages)
+            let randomPage = Int(arc4random_uniform(UInt32(pageLimit))) + 1
+            
+            self.displayImageFromFlickrBySearch(methodParameters, withPageNumber: randomPage)
+            
+            
+        }
+        task.resume()
+        
+    }
+    
+    private func displayImageFromFlickrBySearch(methodParameters: [String: AnyObject], withPageNumber: Int) {
+        
+        var newMethodParameters = methodParameters
+        newMethodParameters[Constants.FlickrParameterKeys.Page] = "\(withPageNumber)"
+        
+        let session = NSURLSession.sharedSession()
+        let request = NSURLRequest(URL: flickrURLFromParameters(newMethodParameters))
+        
+        let task = session.dataTaskWithRequest(request) {
+            (data, response, error) in
+            
+            // if an error occurs, print it and re-enable the UI
+            func displayError(error: String) {
+                print(error)
+                performUIUpdatesOnMain {
+                    self.setUIEnabled(true)
+                    self.photoTitleLabel.text = "No photo returned. Try again."
+                    self.photoImageView.image = nil
+                }
+            }
+            
+            guard error == nil else {
+                displayError(error!.localizedDescription)
+                return
+            }
+            
+            guard let statusCode = (response as? NSHTTPURLResponse)?.statusCode where statusCode >= 200 && statusCode < 300 else {
+                displayError("Status code is not in the successfull range of 200 <= x <= 299")
+                return
+            }
+            
+            guard let data = data else {
+                displayError("Data was not successfully unwrapped")
+                return
+            }
+            
+            var parsedResults: AnyObject!
+            do {
+                parsedResults = try NSJSONSerialization.JSONObjectWithData(data, options: .AllowFragments)
+            } catch {
+                print("Could not parse the data as JSON: '\(data)'")
+                return
+            }
+            
+            guard let stat = parsedResults[Constants.FlickrResponseKeys.Status] as? String where stat == Constants.FlickrResponseValues.OKStatus else {
+                displayError("Flickr API returned a status other than 'OK'")
+                return
+            }
+            
+            guard let photosDictionary = parsedResults[Constants.FlickrResponseKeys.Photos] as? [String: AnyObject] else {
+                displayError("Could not find photos key in parsedResults")
+                return
+            }
+            
             guard let photosArray = photosDictionary[Constants.FlickrResponseKeys.Photo] as? [[String: AnyObject]] else {
                 displayError("Could not find the photo key in parsedResults")
                 return
@@ -191,11 +270,11 @@ class ViewController: UIViewController {
             }
             
             let randomPhotoIndex = Int(arc4random_uniform(UInt32(photosArray.count)))
-            let randomPhoto = photosArray[randomPhotoIndex]
+            let randomPhotoDictionary = photosArray[randomPhotoIndex]
             
-            let imageTitle = randomPhoto[Constants.FlickrResponseKeys.Title] as? String
+            let imageTitle = randomPhotoDictionary[Constants.FlickrResponseKeys.Title] as? String
             
-            guard let urlString = randomPhoto[Constants.FlickrResponseKeys.MediumURL] as? String else {
+            guard let urlString = randomPhotoDictionary[Constants.FlickrResponseKeys.MediumURL] as? String else {
                 displayError("Could not find these keys:\n\(Constants.FlickrResponseKeys.MediumURL)\n\(Constants.FlickrResponseKeys.Title)")
                 return
             }
