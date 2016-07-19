@@ -264,8 +264,8 @@ class LoginViewController: UIViewController {
 			}
 			
 			/* 6. Use the data! */
-			print(sessionID)
 			self.appDelegate.sessionID = sessionID
+            self.getUserID(sessionID)
 		}
 		
         /* 7. Start the request */
@@ -277,11 +277,60 @@ class LoginViewController: UIViewController {
         /* TASK: Get the user's ID, then store it (appDelegate.userID) for future use and go to next view! */
         
         /* 1. Set the parameters */
+        let methodParameters = [
+            Constants.TMDBParameterKeys.ApiKey: Constants.TMDBParameterValues.ApiKey,
+            Constants.TMDBParameterKeys.SessionID: sessionID
+        ]
+        
         /* 2/3. Build the URL, Configure the request */
+        let request = NSURLRequest(URL: appDelegate.tmdbURLFromParameters(methodParameters, withPathExtension: "/account"))
+        
         /* 4. Make the request */
-        /* 5. Parse the data */
-        /* 6. Use the data! */
+        let task = appDelegate.sharedSession.dataTaskWithRequest(request) { (data, response, error) in
+            
+            func displayError(error: String) {
+                print(error)
+                performUIUpdatesOnMain() {
+                    self.setUIEnabled(true)
+                    self.debugTextLabel.text = "Login Failed (User ID Step)."
+                }
+            }
+            
+            guard error == nil else {
+                displayError("Request returned an error!")
+                return
+            }
+            
+            guard let statusCode = (response as? NSHTTPURLResponse)?.statusCode where statusCode >= 200 && statusCode < 300 else {
+                displayError("Status code other than 2xx was returned!")
+                return
+            }
+            
+            guard let data = data else {
+                displayError("Data was not returned")
+                return
+            }
+            
+            /* 5. Parse the data */
+            var parsedResults: AnyObject!
+            do {
+                parsedResults = try NSJSONSerialization.JSONObjectWithData(data, options: .AllowFragments)
+            } catch {
+                displayError("Could not convert parsed data to JSON object")
+                return
+            }
+            
+            guard let userID = parsedResults[Constants.TMDBResponseKeys.UserID] as? Int else {
+                displayError("Could not find key \(Constants.TMDBResponseKeys.UserID)")
+                return
+            }
+            
+            /* 6. Use the data! */
+            self.appDelegate.userID = userID
+            self.completeLogin()
+        }
         /* 7. Start the request */
+        task.resume()
     }
 }
 
