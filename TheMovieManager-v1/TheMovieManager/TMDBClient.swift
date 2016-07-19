@@ -33,8 +33,17 @@ class TMDBClient : NSObject {
 
     // MARK: GET
     
-    //func taskForGETMethod(method: String, var parameters: [String:AnyObject], completionHandlerForGET: (result: AnyObject!, error: NSError?) -> Void) -> NSURLSessionDataTask {}
-    
+    func taskForGETMethod(method: String, parameters: [String:AnyObject], completionHandlerForGET: (result: AnyObject!, error: NSError?) -> Void) -> NSURLSessionDataTask {
+		
+		// 1. Set the parameters
+		var parameters = parameters
+		parameters[ParameterKeys.ApiKey] = Constants.ApiKey
+		
+		// 2. Build the URL, Configure the request
+		let request = NSMutableURLRequest(URL: TMDBClient.tmdbURLFromParameters(parameters, withPathExtension: TMDBClient.Methods.AuthenticationSessionNew))
+		
+	}
+	
     // MARK: POST
     
     //func taskForPOSTMethod(method: String, var parameters: [String:AnyObject], jsonBody: [String:AnyObject], completionHandlerForPOST: (result: AnyObject!, error: NSError?) -> Void) -> NSURLSessionDataTask {}
