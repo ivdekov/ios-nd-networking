@@ -74,16 +74,29 @@ extension TMDBClient {
     private func getRequestToken(completionHandlerForToken: (success: Bool, requestToken: String?, errorString: String?) -> Void) {
         
         /* 1. Specify parameters, the API method, and the HTTP body (if POST) */
-        /* 2. Make the request */
-        /* 3. Send the desired value(s) to completion handler */
-        
-        /*
-        
+		let method = TMDBClient.Methods.AuthenticationTokenNew
+		let parameters = [String:AnyObject]()
+		
+		/* 2. Make the request */
         taskForGETMethod(method, parameters: parameters) { (results, error) in
-        
+			
+			/* 3. Send the desired value(s) to completion handler */
+			if let error = error {
+				print(error)
+				completionHandlerForToken(success: false, requestToken: nil, errorString: "Login Failed (Request Token).")
+			} else {
+			
+				if let requestToken = results[JSONResponseKeys.RequestToken] as? String {
+					completionHandlerForToken(success: true, requestToken: requestToken, errorString: nil)
+				} else {
+						print("Could not find \(JSONResponseKeys.RequestToken) in \(results)")
+					completionHandlerForToken(success: false, requestToken: nil, errorString: "Login Failed (Request Token).")
+				}
+			}
+			
         }
         
-        */
+
     }
     
     private func loginWithToken(requestToken: String?, hostViewController: UIViewController, completionHandlerForLogin: (success: Bool, errorString: String?) -> Void) {
@@ -106,33 +119,54 @@ extension TMDBClient {
     private func getSessionID(requestToken: String?, completionHandlerForSession: (success: Bool, sessionID: String?, errorString: String?) -> Void) {
         
         /* 1. Specify parameters, the API method, and the HTTP body (if POST) */
+		let parameters = [
+			ParameterKeys.RequestToken: requestToken!
+		]
+		
         /* 2. Make the request */
-        /* 3. Send the desired value(s) to completion handler */
-        
-        /*
-        
-        taskForGETMethod(method, parameters: parameters) { (results, error) in
-        
-        }
-        
-        */
+		taskForGETMethod(Methods.AuthenticationSessionNew, parameters: parameters) { (results, error) in
+			
+			/* 3. Send the desired value(s) to completion handler */
+			if let error = error {
+				print(error)
+				completionHandlerForSession(success: false, sessionID: nil, errorString: "Login Failed (Session ID).")
+			} else {
+				if let sessionID = results[JSONResponseKeys.SessionID] as? String {
+					self.sessionID = sessionID
+					completionHandlerForSession(success: true, sessionID: sessionID, errorString: nil)
+				}
+				else {
+					completionHandlerForSession(success: false, sessionID: nil, errorString: "Login Failed (Session ID).")
+				}
+			}
+		}
     }
     
     private func getUserID(completionHandlerForUserID: (success: Bool, userID: Int?, errorString: String?) -> Void) {
         
-        /* 1. Specify parameters, the API method, and the HTTP body (if POST) */
-        /* 2. Make the request */
-        /* 3. Send the desired value(s) to completion handler */
-        
-        /*
-        
-        taskForGETMethod(method, parameters: parameters) { (results, error) in
-        
-        }
-        
-        */
+		/* 1. Specify parameters, the API method, and the HTTP body (if POST) */
+		let parameters = [
+			ParameterKeys.SessionID: sessionID!
+		]
+		
+		/* 2. Make the request */
+		taskForGETMethod(Methods.Account, parameters: parameters) { (results, error) in
+			
+			/* 3. Send the desired value(s) to completion handler */
+			if let error = error {
+				print(error)
+				completionHandlerForUserID(success: false, userID: nil, errorString: "Login Failed (User ID) 1")
+			} else {
+				if let userID = results[JSONResponseKeys.UserID] as? Int {
+					self.userID = userID
+					completionHandlerForUserID(success: true, userID: userID, errorString: nil)
+				} else {
+					completionHandlerForUserID(success: false, userID: nil, errorString: "Login Failed (User ID) 2")
+				}
+			}
+		}
     }
-    
+	
     // MARK: GET Convenience Methods
     
     func getFavoriteMovies(completionHandlerForFavMovies: (result: [TMDBMovie]?, error: NSError?) -> Void) {
