@@ -39,13 +39,44 @@ class TMDBClient : NSObject {
 		var parameters = parameters
 		parameters[ParameterKeys.ApiKey] = Constants.ApiKey
 		
-		// 2. Build the URL, Configure the request
-		let request = NSMutableURLRequest(URL: TMDBClient.tmdbURLFromParameters(parameters, withPathExtension: TMDBClient.Methods.AuthenticationSessionNew))
+		// 2/3. Build the URL, Configure the request
+		let request = NSMutableURLRequest(URL: TMDBClient.tmdbURLFromParameters(parameters, withPathExtension: method))
 		
+		// 4. Make the request
+		let task = session.dataTaskWithRequest(request) { data, response, error in
+			
+			func sendError(error: String) {
+				let userInfo = [NSLocalizedDescriptionKey : error]
+				completionHandlerForGET(result: nil, error: NSError(domain: "taskForGETMethod", code: 1, userInfo: userInfo))
+			}
+			
+			/* GUARD: Was there an error? */
+			guard (error == nil) else {
+				sendError("There was an error with your request: \(error)")
+				return
+			}
+			
+			/* GUARD: Did we get a successful 2XX response? */
+			guard let statusCode = (response as? NSHTTPURLResponse)?.statusCode where statusCode >= 200 && statusCode <= 299 else {
+				sendError("Your request returned a status code other than 2xx!")
+				return
+			}
+			
+			/* GUARD: Was there any data returned? */
+			guard let data = data else {
+				sendError("No data was returned by the request!")
+				return
+			}
+			
+			self.convertDataWithCompletionHandler(data, completionHandlerForConvertData: completionHandlerForGET)
+		}
+		
+		task.resume()
+		return task
 	}
 	
     // MARK: POST
-    
+	
     //func taskForPOSTMethod(method: String, var parameters: [String:AnyObject], jsonBody: [String:AnyObject], completionHandlerForPOST: (result: AnyObject!, error: NSError?) -> Void) -> NSURLSessionDataTask {}
     
     // MARK: GET Image
@@ -104,7 +135,7 @@ class TMDBClient : NSObject {
     
     // given raw JSON, return a usable Foundation object
     private func convertDataWithCompletionHandler(data: NSData, completionHandlerForConvertData: (result: AnyObject!, error: NSError?) -> Void) {
-        
+
         var parsedResult: AnyObject!
         do {
             parsedResult = try NSJSONSerialization.JSONObjectWithData(data, options: .AllowFragments)
